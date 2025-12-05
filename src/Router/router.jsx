@@ -1,0 +1,45 @@
+import { createBrowserRouter, Navigate } from "react-router-dom";
+import LoginPage from "../Pages/login.jsx";
+import { PrivateRoute } from "../Central_Store/app_context.jsx";
+import DashboardLayout from "../Components/DashboardLayout.jsx";
+import Home from "../Pages/home.jsx";
+import Influencers from "../Pages/influencer.jsx";
+import Banners from "../Pages/banner.jsx";
+import Categories from "../Pages/category.jsx";
+import InfluencerDetail from "../Pages/influencerDetail.jsx";
+import Users from "../Pages/users.jsx";
+import UserDetail from "../Pages/userDetail.jsx";
+import AdminData from "../Pages/adminData.jsx";
+import SponsoredContent from "../Pages/sponsoredContent.jsx";
+import Reviews from "../Pages/review.jsx";
+import FaqPage from "../Pages/faq.jsx";
+
+export const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <LoginPage />,
+  },
+  {
+    element: <PrivateRoute />,
+    children: [
+      {
+        path: "/dashboard",
+        element: <DashboardLayout />,
+        children: [
+          { index: true, element: <Navigate to="home" replace /> },
+          { path: "home", element: <Home /> },
+          { path: "influencers", element: <Influencers /> },
+          { path: "influencer-detail/:id", element: <InfluencerDetail /> },
+          { path: "users", element: <Users /> },
+          { path: "user-detail/:id", element: <UserDetail /> },
+          { path: "admin-data", element: <AdminData /> },
+          { path: "sponsored-content", element: <SponsoredContent /> },
+          { path: "banners", element: <Banners /> },
+          { path: "categories", element: <Categories /> },
+          { path: "reviews", element: <Reviews /> },
+          { path: "faqs", element: <FaqPage /> },
+        ],
+      },
+    ],
+  },
+]);
