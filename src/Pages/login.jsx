@@ -9,8 +9,17 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const { baseUrl } = useAppContext();
 
+  const api = axios.create({
+    baseURL: baseUrl,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    // withCredentials: true, // only if backend uses cookies/session
+  });
+
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    setForm((p) => ({ ...p, [e.target.name]: e.target.value }));
   };
 
   const validate = () => {
@@ -22,69 +31,67 @@ export default function Login() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const errorMsg = validate();
 
-    if (errorMsg) {
-      setError(errorMsg);
-      return;
-    }
+    const errorMsg = validate();
+    if (errorMsg) return setError(errorMsg);
 
     setError("");
     setLoading(true);
 
     try {
-        setLoading(true);
+      // IMPORTANT: confirm your real endpoint path on backend
+      // Your console shows /login/ but your code uses /admin_login/
+      const res = await api.post("/admin_login/", form);
 
-        const response = await axios.post(`${baseUrl}/login/`, form);
+      const payload = res.data || {};
+      const access =
+        payload.access_token || payload.access || payload.token || payload?.data?.access;
+      const refresh =
+        payload.refresh_token || payload.refresh || payload?.data?.refresh;
 
-        const data = response.data; // ✅ correct for axios
+      // optionally user/admin object
+      const admin =
+        payload.admin || payload.user || payload.data?.admin || payload.data?.user || null;
 
-        const validData = data.data;
-        console.log(validData);
-        // Successful login
-        if (validData?.email === form.email) {
-            localStorage.setItem("isAuth", "true");
-            window.location.href = "/dashboard";
-            setForm({ email: "", password: "" });
-        } else {
-            setError("Invalid email or password");
-        }
+      if (!access) {
+        throw new Error(payload.message || "Login failed: token not received");
+      }
 
+      localStorage.setItem("access_token", access);
+      if (refresh) localStorage.setItem("refresh_token", refresh);
+      if (admin) localStorage.setItem("admin", JSON.stringify(admin));
+      localStorage.setItem("isAuth", "true");
+
+      window.location.assign("/dashboard");
     } catch (err) {
-        setError(err.response?.data?.message || err.message || "Unable to login");
+      // show backend message if present
+      const msg =
+        err?.response?.data?.message ||
+        err?.response?.data?.detail ||
+        err?.message ||
+        "Unable to login";
+      setError(msg);
     } finally {
-        setLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-10">
-
-        {/* Illustration */}
-        <img
-          src={header}
-          alt="illustration"
-          className="w-60 mx-auto drop-shadow-lg"
-        />
-
+        <img src={header} alt="illustration" className="w-60 mx-auto drop-shadow-lg" />
         <h2 className="text-2xl font-semibold mt-3 text-center">Welcome</h2>
         <p className="text-gray-500 text-center">Login to your admin account</p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
-          
-          {/* Error Message */}
           {error && (
             <div className="bg-[#ffe6f0] text-[#940aea] p-2 rounded text-sm text-center">
               {error}
             </div>
           )}
 
-          {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input
               type="email"
               name="email"
@@ -92,14 +99,12 @@ export default function Login() {
               onChange={handleChange}
               placeholder="admin@example.com"
               className="w-full border px-4 py-2 rounded-lg"
+              autoComplete="email"
             />
           </div>
 
-          {/* Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
             <input
               type="password"
               name="password"
@@ -107,10 +112,10 @@ export default function Login() {
               onChange={handleChange}
               placeholder="******"
               className="w-full border px-4 py-2 rounded-lg"
+              autoComplete="current-password"
             />
           </div>
 
-          {/* Login Button */}
           <button
             type="submit"
             disabled={loading}
@@ -120,11 +125,8 @@ export default function Login() {
           >
             {loading ? "Logging in..." : "Login"}
           </button>
-
         </form>
-
       </div>
     </div>
-
   );
 }
