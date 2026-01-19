@@ -11,6 +11,10 @@ export default function InfluencerDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [availabilityData, setAvailabilityData] = useState(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(true);
+  const [availabilityError, setAvailabilityError] = useState("");
+
   const influencer = useMemo(
     () => fetchedData.influencers?.find((inf) => inf.id === numericId),
     [fetchedData.influencers, numericId]
@@ -38,6 +42,69 @@ export default function InfluencerDetail() {
     fetchInfluencerCategories();
   }, [baseUrl, numericId]);
 
+  useEffect(() => {
+    const fetchAvailability = async () => {
+      setAvailabilityLoading(true);
+      setAvailabilityError("");
+      try {
+        const res = await fetch(`${baseUrl}/availability/${numericId}/`, {
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error("Failed to fetch availability");
+        const data = await res.json();
+        setAvailabilityData(data);
+      } catch (err) {
+        setAvailabilityError(err.message || "Something went wrong");
+        setAvailabilityData(null);
+      } finally {
+        setAvailabilityLoading(false);
+      }
+    };
+
+    if (Number.isFinite(numericId)) fetchAvailability();
+  }, [baseUrl, numericId]);
+
+  const days = useMemo(
+    () => [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ],
+    []
+  );
+
+  const parseTimeToMinutes = (t) => {
+    if (!t || typeof t !== "string") return null;
+    const parts = t.split(":");
+    if (parts.length < 2) return null;
+    const h = Number(parts[0]);
+    const m = Number(parts[1]);
+    if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+    return h * 60 + m;
+  };
+
+  const availabilityByDay = useMemo(() => {
+    const list = availabilityData?.availability;
+    const map = {};
+    if (!Array.isArray(list)) return map;
+    for (const d of list) {
+      if (!d?.day) continue;
+      map[d.day] = Array.isArray(d.slots) ? d.slots : [];
+    }
+    return map;
+  }, [availabilityData]);
+
+  const formatTime = (t) => {
+    if (!t || typeof t !== "string") return "-";
+    const parts = t.split(":");
+    if (parts.length < 2) return t;
+    return `${parts[0].padStart(2, "0")}:${parts[1].padStart(2, "0")}`;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -54,30 +121,32 @@ export default function InfluencerDetail() {
       </div>
 
       {influencer && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Basic Info</h2>
-            <p><span className="font-medium">Name:</span> {influencer.name}</p>
-            <p><span className="font-medium">Email:</span> {influencer.email}</p>
-            <p><span className="font-medium">Mobile:</span> {influencer.mobile}</p>
-            <p><span className="font-medium">Bio:</span> {influencer.bio}</p>
+        <>
+          <div className="bg-white rounded-xl border border-gray-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Basic Info</h2>
+              <p><span className="font-medium">Name:</span> {influencer.name}</p>
+              <p><span className="font-medium">Email:</span> {influencer.email}</p>
+              <p><span className="font-medium">Mobile:</span> {influencer.mobile}</p>
+              <p><span className="font-medium">Bio:</span> {influencer.bio}</p>
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold mb-2">Status</h2>
+              <p>
+                <span className="font-medium">Active:</span>{" "}
+                {influencer.status ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="font-medium">Admin Approved:</span>{" "}
+                {influencer.admin_approved ? "Yes" : "No"}
+              </p>
+              <p>
+                <span className="font-medium">Login On/Off:</span>{" "}
+                {influencer.login_on_off ? "On" : "Off"}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold mb-2">Status</h2>
-            <p>
-              <span className="font-medium">Active:</span>{" "}
-              {influencer.status ? "Yes" : "No"}
-            </p>
-            <p>
-              <span className="font-medium">Admin Approved:</span>{" "}
-              {influencer.admin_approved ? "Yes" : "No"}
-            </p>
-            <p>
-              <span className="font-medium">Login On/Off:</span>{" "}
-              {influencer.login_on_off ? "On" : "Off"}
-            </p>
-          </div>
-        </div>
+        </>
       )}
 
       <div className="bg-white rounded-xl border border-gray-200 p-4">
@@ -124,6 +193,90 @@ export default function InfluencerDetail() {
           </div>
         )}
       </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold">Availability</h2>
+          <div className="flex items-center gap-2 text-xs text-gray-600">
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+              Booked
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-yellow-400" />
+              Paused
+            </span>
+          </div>
+        </div>
+
+        {availabilityLoading && (
+          <p className="text-gray-500 text-sm">Loading availability...</p>
+        )}
+        {availabilityError && !availabilityLoading && (
+          <p className="text-red-600 text-sm">{availabilityError}</p>
+        )}
+
+        {!availabilityLoading && !availabilityError && (
+          <div className="space-y-4">
+            {days.map((day) => {
+              const apiSlots = availabilityByDay[day] || [];
+              const sorted = [...apiSlots].sort((a, b) => {
+                const aStart = parseTimeToMinutes(a?.start_time);
+                const bStart = parseTimeToMinutes(b?.start_time);
+                if (!Number.isFinite(aStart) && !Number.isFinite(bStart)) return 0;
+                if (!Number.isFinite(aStart)) return 1;
+                if (!Number.isFinite(bStart)) return -1;
+                return aStart - bStart;
+              });
+
+              return (
+                <div key={day} className="border border-gray-200 rounded-lg p-3">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="font-medium text-gray-900">{day}</p>
+                    <p className="text-xs text-gray-500">Slots: {sorted.length}</p>
+                  </div>
+
+                  {sorted.length === 0 ? (
+                    <p className="text-sm text-gray-500">No slots</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      {sorted.map((s, idx) => {
+                        const isPaused = Boolean(s?.is_pause);
+                        const isBooked = Boolean(s?.is_booked);
+
+                        let badgeClass = "bg-gray-50 border-gray-200 text-gray-700";
+                        if (isPaused) badgeClass = "bg-yellow-50 border-yellow-200 text-yellow-900";
+                        else if (isBooked)
+                          badgeClass = "bg-green-50 border-green-200 text-green-800";
+
+                        return (
+                          <div
+                            key={`${day}-${s?.slot_id ?? idx}`}
+                            className={`rounded-md border px-3 py-2 text-sm font-medium ${badgeClass}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span>
+                                {formatTime(s?.start_time)} - {formatTime(s?.end_time)}
+                              </span>
+                              <span className="text-xs font-semibold">
+                                {isPaused ? "Paused" : isBooked ? "Booked" : "Available"}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {!Array.isArray(availabilityData?.availability) && (
+              <p className="text-gray-500 text-sm">No availability data found.</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
-}
+ }

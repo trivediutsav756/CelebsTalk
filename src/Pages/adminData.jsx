@@ -23,9 +23,10 @@ export default function AdminData() {
   }, [fetchedData.adminData]);
 
   const filtered = useMemo(() => {
-    if (!query) return admins;
+    const safeAdmins = Array.isArray(admins) ? admins : [];
+    if (!query) return safeAdmins;
     const q = query.toLowerCase();
-    return admins.filter(
+    return safeAdmins.filter(
       (a) =>
         a.name?.toLowerCase().includes(q) ||
         a.email?.toLowerCase().includes(q) ||
@@ -39,7 +40,7 @@ export default function AdminData() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this admin record?")) return;
     await deleteData(`/admin_data/${id}/`);
-    await getServicesData();
+    await getServicesData("adminData");
   };
 
   const handleAdd = () => {
@@ -79,7 +80,7 @@ export default function AdminData() {
         await postData("/admin_data/", payload, "Admin Data");
       }
 
-      await getServicesData();
+      await getServicesData("adminData");
       setOpen(false);
       setEditData(null);
     } catch (error) {

@@ -13,6 +13,10 @@ import AdminData from "../Pages/adminData.jsx";
 import SponsoredContent from "../Pages/sponsoredContent.jsx";
 import Reviews from "../Pages/review.jsx";
 import FaqPage from "../Pages/faq.jsx";
+import Services from "../Pages/services.jsx";
+
+import MyProfile from "../Pages/myProfile.jsx";
+import Expertise from "../Pages/expertise.jsx";
 
 export const router = createBrowserRouter([
   {
@@ -38,6 +42,10 @@ export const router = createBrowserRouter([
           { path: "categories", element: <Categories /> },
           { path: "reviews", element: <Reviews /> },
           { path: "faqs", element: <FaqPage /> },
+          { path: "services", element: <Services /> },
+          { path: "expertise", element: <Expertise /> },
+    
+          { path: "my-profile", element: <MyProfile /> },
         ],
       },
     ],

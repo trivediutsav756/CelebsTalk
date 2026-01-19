@@ -3,13 +3,13 @@ import DataTable from "../Components/DataTable.jsx";
 import Pagination from "../Components/Pagination.jsx";
 import Form from "../Components/Form.jsx";
 import Modal from "../Components/Modal.jsx";
-import { EyeIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { EyeIcon, TrashIcon, PlusIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { useAppContext } from "../Central_Store/app_context.jsx";
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 export default function Users() {
-  const { fetchedData, deleteData, postData, patchData, getServicesData } = useAppContext();
+  const { fetchedData, deleteData, postData, patchData, putData, getServicesData } = useAppContext();
 
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
@@ -24,9 +24,10 @@ export default function Users() {
   }, [fetchedData.users]);
 
   const filtered = useMemo(() => {
-    if (!query) return users;
+    const safeUsers = Array.isArray(users) ? users : [];
+    if (!query) return safeUsers;
     const q = query.toLowerCase();
-    return users.filter(
+    return safeUsers.filter(
       (u) =>
         u.full_name?.toLowerCase().includes(q) ||
         u.email?.toLowerCase().includes(q) ||
@@ -38,23 +39,65 @@ export default function Users() {
   const current = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const handleDelete = async (id) => {
+    const identifier = id;
+    const encodedId = encodeURIComponent(String(identifier ?? "").trim());
     if (!window.confirm("Delete this user?")) return;
-    await deleteData(`/register/${id}/`);
-    await getServicesData();
+    try {
+      try {
+        await deleteData(`/user/${encodedId}/`, { skipConfirm: true });
+      } catch (e1) {
+        try {
+          await deleteData(`/user/${encodedId}`, { skipConfirm: true });
+        } catch (e2) {
+          await deleteData(`/user/pass/${encodedId}/`, { skipConfirm: true });
+        }
+      }
+      await getServicesData("users");
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed: " + (error.message || "Unknown error"));
+    }
   };
 
   const handleAdd = () => {
-    setEditData(null);
+    setEditData({
+      full_name: "",
+      email: "",
+      mobile: "",
+      gender: "",
+      date_of_birth: "",
+      image: null,
+      interests: "",
+      referral_code: "",
+      is_active: "Active",
+      is_staff: "No",
+    });
     setOpen(true);
   };
 
   const handleEdit = (row) => {
+    const normalizeDobForInput = (value) => {
+      if (!value) return "";
+      if (typeof value !== "string") return "";
+
+      // API format expected: DD-MM-YYYY
+      const m = value.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+      if (m) {
+        const [, dd, mm, yyyy] = m;
+        return `${yyyy}-${mm}-${dd}`;
+      }
+
+      return value;
+    };
+
     setEditData({
-      id: row.id,
+      user_id: row.user_id || row.email || row.id,
       full_name: row.full_name || "",
-      email: row.email || "",
+      email: row.email || row.user_id || "",
       mobile: row.mobile || "",
       gender: row.gender || "",
+      date_of_birth: normalizeDobForInput(row.date_of_birth),
+      image: null,
       interests: row.interests || "",
       referral_code: row.referral_code || "",
       is_active: row.is_active ? "Active" : "Inactive",
@@ -64,25 +107,67 @@ export default function Users() {
   };
 
   const handleSubmit = async (formValues) => {
-    const payload = {
-      full_name: (formValues.full_name || "").trim(),
-      email: (formValues.email || "").trim(),
-      mobile: (formValues.mobile || "").trim(),
-      gender: formValues.gender || "",
-      interests: formValues.interests || "",
-      referral_code: (formValues.referral_code || "").trim(),
-      is_active: formValues.is_active === "Active",
-      is_staff: formValues.is_staff === "Yes",
-    };
+    const normalizeDobForApi = (value) => {
+      if (!value) return "";
+      if (typeof value !== "string") return "";
 
-    try {
-      if (editData?.id) {
-        await patchData(`/register/${editData.id}/`, payload, "User");
-      } else {
-        await postData("/register/", payload, "User");
+      // HTML date input: YYYY-MM-DD -> API: DD-MM-YYYY
+      const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) {
+        const [, yyyy, mm, dd] = m;
+        return `${dd}-${mm}-${yyyy}`;
       }
 
-      await getServicesData();
+      return value;
+    };
+
+    const fd = new FormData();
+    fd.append("full_name", (formValues.full_name || "").trim());
+    const email = (formValues.email || "").trim();
+    fd.append("email", email);
+    fd.append("user_id", email);
+    fd.append("mobile", (formValues.mobile || "").trim());
+    fd.append("gender", formValues.gender || "");
+    fd.append("date_of_birth", normalizeDobForApi((formValues.date_of_birth || "").trim()));
+    fd.append("interests", (formValues.interests || "").trim());
+    fd.append("referral_code", (formValues.referral_code || "").trim());
+    fd.append("is_active", formValues.is_active === "Active" ? "true" : "false");
+    fd.append("is_staff", formValues.is_staff === "Yes" ? "true" : "false");
+
+    if (formValues.image && formValues.image instanceof File) {
+      fd.append("image", formValues.image);
+    }
+
+    try {
+      const identifier = editData?.user_id || editData?.email;
+      const encodedId = encodeURIComponent(String(identifier ?? "").trim());
+      if (identifier) {
+        try {
+          await patchData(`/user/${encodedId}/`, fd, "User");
+        } catch (e1) {
+          try {
+            await patchData(`/user/${encodedId}`, fd, "User");
+          } catch (e2) {
+            try {
+              await patchData(`/user/pass/${encodedId}/`, fd, "User");
+            } catch (e3) {
+              try {
+                await putData(`/user/${encodedId}/`, fd, "User");
+              } catch (e4) {
+                try {
+                  await putData(`/user/${encodedId}`, fd, "User");
+                } catch (e5) {
+                  await putData(`/user/pass/${encodedId}/`, fd, "User");
+                }
+              }
+            }
+          }
+        }
+      } else {
+        await postData("/user/", fd, "User");
+      }
+
+      await getServicesData("users");
       setOpen(false);
       setEditData(null);
     } catch (error) {
@@ -99,9 +184,11 @@ export default function Users() {
       label: "Gender",
       name: "gender",
       type: "select",
-      options: ["M", "F", "O"],
+      options: ["Male", "Female", "Other"],
       required: false,
     },
+    { label: "Date Of Birth", name: "date_of_birth", type: "date" },
+    { label: "Image", name: "image", type: "image" },
     { label: "Interests", name: "interests", type: "text" },
     { label: "Referral Code", name: "referral_code", type: "text" },
     {
@@ -177,10 +264,12 @@ export default function Users() {
           className="w-full sm:max-w-sm px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition"
         />
         <button
+          type="button"
           onClick={handleAdd}
+          className="flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow transition"
         >
-        
-        
+          <PlusIcon className="h-5 w-5" />
+          Add User
         </button>
       </div>
 
@@ -194,6 +283,10 @@ export default function Users() {
               <Link to={`/dashboard/user-detail/${row.id}`}>
                 <EyeIcon className="h-5 w-5 text-gray-600 hover:text-gray-800 cursor-pointer transition" />
               </Link>
+              <PencilIcon
+                className="h-5 w-5 text-indigo-600 hover:text-indigo-900 cursor-pointer transition"
+                onClick={() => handleEdit(row)}
+              />
               <TrashIcon
                 className="h-5 w-5 text-red-600 hover:text-red-800 cursor-pointer transition"
                 onClick={() => handleDelete(row.id)}

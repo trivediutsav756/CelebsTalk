@@ -8,7 +8,8 @@ import { useAppContext } from "../Central_Store/app_context.jsx";
 import { useEffect, useMemo, useState } from "react";
 
 export default function SponsoredContent() {
-  const { fetchedData, deleteData, postData, patchData, getServicesData } = useAppContext();
+  const { fetchedData, deleteData, postData, patchData, getServicesData } =
+    useAppContext();
 
   const [items, setItems] = useState([]);
   const [query, setQuery] = useState("");
@@ -21,12 +22,14 @@ export default function SponsoredContent() {
 
   useEffect(() => {
     setItems(fetchedData.sponsoredContent || []);
+    setPage(1);
   }, [fetchedData.sponsoredContent]);
 
   const filtered = useMemo(() => {
-    if (!query) return items;
+    const safeItems = Array.isArray(items) ? items : [];
+    if (!query) return safeItems;
     const q = query.toLowerCase();
-    return items.filter(
+    return safeItems.filter(
       (b) =>
         b.CTA_text?.toLowerCase().includes(q) ||
         b.CTA_link?.toLowerCase().includes(q)
@@ -39,7 +42,7 @@ export default function SponsoredContent() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this sponsored content?")) return;
     await deleteData(`/sponsored_content/${id}/`);
-    await getServicesData();
+    await getServicesData("sponsoredContent");
   };
 
   const handleAdd = () => {
@@ -52,10 +55,31 @@ export default function SponsoredContent() {
       id: row.id,
       CTA_text: row.CTA_text || "",
       CTA_link: row.CTA_link || "",
+      // keep as label strings since your Form select uses ["Active", "Inactive"]
       status: row.status ? "Active" : "Inactive",
       currentImage: row.image ? STATIC_URL + row.image : null,
     });
     setOpen(true);
+  };
+
+  // ✅ FIX: normalize status properly (string "Inactive" should become false)
+  const normalizeStatusToBoolean = (value) => {
+    if (typeof value === "boolean") return value;
+
+    if (typeof value === "string") {
+      const v = value.trim().toLowerCase();
+      if (v === "active") return true;
+      if (v === "inactive") return false;
+      if (v === "true") return true;
+      if (v === "false") return false;
+      if (v === "1") return true;
+      if (v === "0") return false;
+    }
+
+    if (typeof value === "number") return value === 1;
+
+    // default
+    return false;
   };
 
   const handleSubmit = async (formValues) => {
@@ -63,8 +87,10 @@ export default function SponsoredContent() {
 
     fd.append("CTA_text", (formValues.CTA_text || "").trim());
     fd.append("CTA_link", (formValues.CTA_link || "").trim());
-    // Form component already converts "Active"/"Inactive" → true/false
-    fd.append("status", !!formValues.status);
+
+    const statusBool = normalizeStatusToBoolean(formValues.status);
+    // For FormData, always send string "true"/"false" (works well with many backends)
+    fd.append("status", statusBool ? "true" : "false");
 
     if (formValues.image && formValues.image instanceof File) {
       fd.append("image", formValues.image);
@@ -72,12 +98,16 @@ export default function SponsoredContent() {
 
     try {
       if (editData?.id) {
-        await patchData(`/sponsored_content/${editData.id}/`, fd, "Sponsored Content");
+        await patchData(
+          `/sponsored_content/${editData.id}/`,
+          fd,
+          "Sponsored Content"
+        );
       } else {
         await postData("/sponsored_content/", fd, "Sponsored Content");
       }
 
-      await getServicesData();
+      await getServicesData("sponsoredContent");
       setOpen(false);
       setEditData(null);
     } catch (error) {
@@ -89,7 +119,13 @@ export default function SponsoredContent() {
   const fields = [
     { label: "CTA Text", name: "CTA_text", type: "text", required: true },
     { label: "CTA Link", name: "CTA_link", type: "text" },
-    { label: "Status", name: "status", type: "select", options: ["Active", "Inactive"], required: true },
+    {
+      label: "Status",
+      name: "status",
+      type: "select",
+      options: ["Active", "Inactive"],
+      required: true,
+    },
     { label: "Image", name: "image", type: "image" },
   ];
 
@@ -180,7 +216,11 @@ export default function SponsoredContent() {
 
       {pageCount > 1 && (
         <div className="px-4 sm:px-6 lg:px-8">
-          <Pagination currentPage={page} totalPages={pageCount} onPageChange={setPage} />
+          <Pagination
+            currentPage={page}
+            totalPages={pageCount}
+            onPageChange={setPage}
+          />
         </div>
       )}
 

@@ -1,4 +1,3 @@
-// src/pages/Categories.jsx
 import DataTable from "../Components/DataTable.jsx";
 import Pagination from "../Components/Pagination.jsx";
 import Form from "../Components/Form.jsx";
@@ -7,10 +6,10 @@ import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useAppContext } from "../Central_Store/app_context.jsx";
 import { useEffect, useMemo, useState } from "react";
 
-export default function Categories() {
-  const { fetchedData, deleteData, postData, patchData, getServicesData } = useAppContext();
+export default function Expertise() {
+  const { fetchedData, deleteData, postData, patchData, putData, getServicesData } = useAppContext();
 
-  const [categories, setCategories] = useState([]);
+  const [expertise, setExpertise] = useState([]);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
@@ -20,23 +19,53 @@ export default function Categories() {
   const STATIC_URL = "https://celebstalks.pythonanywhere.com";
 
   useEffect(() => {
-    setCategories(fetchedData.categories || []);
+    setExpertise(Array.isArray(fetchedData.expertise) ? fetchedData.expertise : []);
+  }, [fetchedData.expertise]);
+
+  const categoryOptions = useMemo(() => {
+    const cats = Array.isArray(fetchedData.categories) ? fetchedData.categories : [];
+    return cats.map((c) => ({ value: String(c.id), label: c.name || `Category ${c.id}` }));
+  }, [fetchedData.categories]);
+
+  const categoryNameById = useMemo(() => {
+    const map = new Map();
+    (Array.isArray(fetchedData.categories) ? fetchedData.categories : []).forEach((c) => {
+      map.set(String(c.id), c.name || String(c.id));
+    });
+    return map;
   }, [fetchedData.categories]);
 
   const filtered = useMemo(() => {
-    const safeCategories = Array.isArray(categories) ? categories : [];
-    if (!query) return safeCategories;
+    const safe = Array.isArray(expertise) ? expertise : [];
+    if (!query) return safe;
     const q = query.toLowerCase();
-    return safeCategories.filter((c) => c.name?.toLowerCase().includes(q));
-  }, [categories, query]);
+    return safe.filter((e) => {
+      const name = (e.expertise_name || e.name || "").toLowerCase();
+      const catId =
+        e.category_data != null
+          ? String(typeof e.category_data === "object" ? e.category_data.id : e.category_data)
+          : "";
+      const catName = (categoryNameById.get(catId) || "").toLowerCase();
+      return name.includes(q) || catName.includes(q);
+    });
+  }, [expertise, query, categoryNameById]);
 
   const pageCount = Math.ceil(filtered.length / pageSize);
   const current = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this category?")) return;
-    await deleteData(`/category/${id}/`);
-    await getServicesData("categories");
+    if (!window.confirm("Delete this expertise?")) return;
+    try {
+      try {
+        await deleteData(`/expertise/pass/${id}/`, { skipConfirm: true });
+      } catch (e1) {
+        await deleteData(`/expertise/${id}/`, { skipConfirm: true });
+      }
+      await getServicesData("expertise");
+    } catch (error) {
+      console.error("Delete error:", error);
+      alert("Failed: " + (error.message || "Unknown error"));
+    }
   };
 
   const handleAdd = () => {
@@ -45,19 +74,24 @@ export default function Categories() {
   };
 
   const handleEdit = (row) => {
+    const catId =
+      row.category_data != null
+        ? String(typeof row.category_data === "object" ? row.category_data.id : row.category_data)
+        : "";
+
     setEditData({
       id: row.id,
-      name: row.name || "",
-      status: row.status ? "Active" : "Inactive",
-      currentImage: row.image ? STATIC_URL + row.image : null,
+      category_data: catId,
+      expertise_name: row.expertise_name || "",
+      image: row.image ? STATIC_URL + row.image : "",
     });
     setOpen(true);
   };
 
   const handleSubmit = async (formValues) => {
     const fd = new FormData();
-    fd.append("name", (formValues.name || "").trim());
-    fd.append("status", formValues.status === "Active");
+    fd.append("category_data", String(formValues.category_data || "").trim());
+    fd.append("expertise_name", (formValues.expertise_name || "").trim());
 
     if (formValues.image && formValues.image instanceof File) {
       fd.append("image", formValues.image);
@@ -65,11 +99,24 @@ export default function Categories() {
 
     try {
       if (editData?.id) {
-        await patchData(`/category/${editData.id}/`, fd, "Category");
+        try {
+          await patchData(`/expertise/pass/${editData.id}/`, fd, "Expertise");
+        } catch (e1) {
+          try {
+            await patchData(`/expertise/${editData.id}/`, fd, "Expertise");
+          } catch (e2) {
+            try {
+              await putData(`/expertise/pass/${editData.id}/`, fd, "Expertise");
+            } catch (e3) {
+              await putData(`/expertise/${editData.id}/`, fd, "Expertise");
+            }
+          }
+        }
       } else {
-        await postData("/category/", fd, "Category");
+        await postData("/expertise/", fd, "Expertise");
       }
-      await getServicesData("categories");
+
+      await getServicesData("expertise");
       setOpen(false);
       setEditData(null);
     } catch (error) {
@@ -79,9 +126,15 @@ export default function Categories() {
   };
 
   const fields = [
-    { label: "Name", name: "name", type: "text", required: true },
-    { label: "Status", name: "status", type: "select", options: ["Active", "Inactive"], required: true },
-    { label: "Category Image", name: "image", type: "image" },
+    {
+      label: "Category",
+      name: "category_data",
+      type: "select",
+      options: categoryOptions,
+      required: true,
+    },
+    { label: "Expertise Name", name: "expertise_name", type: "text", required: true },
+    { label: "Image", name: "image", type: "image" },
   ];
 
   const columns = [
@@ -92,7 +145,7 @@ export default function Categories() {
         row.image ? (
           <img
             src={STATIC_URL + row.image}
-            alt="category"
+            alt="expertise"
             className="h-16 w-16 object-cover rounded-full shadow"
           />
         ) : (
@@ -101,20 +154,18 @@ export default function Categories() {
           </div>
         ),
     },
-    { label: "Name", key: "name", type: "text" },
     {
-      label: "Status",
-      key: "status",
-      render: (row) => (
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-medium ${
-            row.status ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-          }`}
-        >
-          {row.status ? "Active" : "Inactive"}
-        </span>
-      ),
+      label: "Category",
+      key: "category_data",
+      render: (row) => {
+        const catId =
+          row.category_data != null
+            ? String(typeof row.category_data === "object" ? row.category_data.id : row.category_data)
+            : "";
+        return categoryNameById.get(catId) || catId || "-";
+      },
     },
+    { label: "Expertise", key: "expertise_name", type: "text" },
     {
       label: "Actions",
       key: "actions",
@@ -133,19 +184,14 @@ export default function Categories() {
 
   return (
     <div className="space-y-8">
-
-      {/* CENTERED + PURPLE + text-4xl TITLE */}
       <div className="text-center py-10 border-b border-gray-200 bg-gradient-to-b from-purple-50 to-white">
-        <h1 className="text-4xl font-extrabold text-purple-700 tracking-tight">
-          Categories Management
-        </h1>
+        <h1 className="text-4xl font-extrabold text-purple-700 tracking-tight">Expertise Management</h1>
       </div>
 
-      {/* Search + Add Button */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4 sm:px-6 lg:px-8">
         <input
           type="text"
-          placeholder="Search by name..."
+          placeholder="Search by expertise or category..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
@@ -158,36 +204,33 @@ export default function Categories() {
           className="flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow transition"
         >
           <PlusIcon className="h-5 w-5" />
-          Add Category
+          Add Expertise
         </button>
       </div>
 
-      {/* Table */}
       <div className="px-4 sm:px-6 lg:px-8">
         <DataTable columns={columns} data={current} />
       </div>
 
-      {/* Pagination */}
       {pageCount > 1 && (
         <div className="px-4 sm:px-6 lg:px-8">
-          <Pagination currentPage={page} totalPages={pageCount} onPageChange={setPage} />
+          <Pagination page={page} setPage={setPage} pageCount={pageCount} />
         </div>
       )}
 
-      {/* Modal */}
       <Modal
         open={open}
         onClose={() => {
           setOpen(false);
           setEditData(null);
         }}
-        title={editData ? "Edit Category" : "Add New Category"}
+        title={editData ? "Edit Expertise" : "Add New Expertise"}
       >
         <Form
           fields={fields}
           initialData={editData || {}}
           onSubmit={handleSubmit}
-          submitLabel={editData ? "Update Category" : "Create Category"}
+          submitLabel={editData ? "Update Expertise" : "Create Expertise"}
           onCancel={() => {
             setOpen(false);
             setEditData(null);

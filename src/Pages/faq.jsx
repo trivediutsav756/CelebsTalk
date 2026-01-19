@@ -6,6 +6,7 @@ import { useAppContext } from "../Central_Store/app_context.jsx";
 import { useEffect, useMemo, useState } from "react";
 import Form from "../Components/Form.jsx";
 import Modal from "../Components/Modal.jsx";
+import { data } from "react-router-dom";
 
 export default function FaqPage() {
   const { fetchedData, deleteData, postData, patchData, getServicesData } = useAppContext();
@@ -34,8 +35,17 @@ export default function FaqPage() {
   const current = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const handleDelete = async (id) => {
-    await deleteData(`/faqs/${id}/`);
-    await getServicesData();
+    try {
+      try {
+        await deleteData(`/faqs/${id}/`);
+      } catch (e) {
+        await deleteData(`/faqs/pass/${id}/`);
+      }
+      await getServicesData("faqs");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete FAQ: " + (err?.message || "Unknown error"));
+    }
   };
 
   const handleAdd = () => {
@@ -59,23 +69,28 @@ export default function FaqPage() {
     const payload = {
       question: (values.question || "").trim(),
       answer: (values.answer || "").trim(),
-      order: values.order ?? "",
+      order: values.order === "" || values.order == null ? 0 : Number(values.order),
       status: values.status === "Active",
     };
 
     try {
       if (editData?.id) {
-        await patchData(`/faqs/${editData.id}/`, payload, "FAQ");
+        try {
+          await patchData(`/faqs/${editData.id}/`, payload, "FAQ");
+        } catch (e) {
+          await patchData(`/faqs/pass/${editData.id}/`, payload, "FAQ");
+        }
+        console.log(data)
       } else {
         await postData("/faqs/", payload, "FAQ");
       }
 
-      await getServicesData();
+      await getServicesData("faqs");
       setOpen(false);
       setEditData(null);
     } catch (err) {
       console.error(err);
-      alert("Failed to save FAQ");
+      alert("Failed to save FAQ: " + (err?.message || "Unknown error"));
     }
   };
 
@@ -87,7 +102,7 @@ export default function FaqPage() {
   ];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4"> 
 
       <PageHeader
         title="FAQs"
@@ -113,7 +128,7 @@ export default function FaqPage() {
               <span
                 className={`px-2 py-1 text-xs rounded ${
                   row.status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}
+                 }`}
               >
                 {row.status ? "Active" : "Inactive"}
               </span>

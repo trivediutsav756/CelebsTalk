@@ -31,7 +31,7 @@ function Item({ to, icon: Icon, label, onClick }) {
     </NavLink>
   );
 }
- 
+
 export default function Sidebar({ isOpen, onClose }) {
   // ALL menu in one single clean list (NO sections)
   const menuList = useMemo(
@@ -45,6 +45,10 @@ export default function Sidebar({ isOpen, onClose }) {
       { label: "Categories", to: "/dashboard/categories", icon: MapPinIcon },
       { label: "FAQs", to: "/dashboard/faqs", icon: ClipboardDocumentListIcon },
       { label: "Reviews", to: "/dashboard/reviews", icon: ClipboardDocumentListIcon },
+      { label: "Services", to: "/dashboard/services", icon: ClipboardDocumentListIcon },
+      { label: "Expertise", to: "/dashboard/expertise", icon: ClipboardDocumentListIcon },
+     
+      { label: "My Profile", to: "/dashboard/my-profile", icon: UserIcon },
     ],
     []
   );

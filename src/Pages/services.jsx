@@ -1,4 +1,3 @@
-// src/pages/Categories.jsx
 import DataTable from "../Components/DataTable.jsx";
 import Pagination from "../Components/Pagination.jsx";
 import Form from "../Components/Form.jsx";
@@ -7,10 +6,10 @@ import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
 import { useAppContext } from "../Central_Store/app_context.jsx";
 import { useEffect, useMemo, useState } from "react";
 
-export default function Categories() {
+export default function Services() {
   const { fetchedData, deleteData, postData, patchData, getServicesData } = useAppContext();
 
-  const [categories, setCategories] = useState([]);
+  const [services, setServices] = useState([]);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [open, setOpen] = useState(false);
@@ -20,23 +19,23 @@ export default function Categories() {
   const STATIC_URL = "https://celebstalks.pythonanywhere.com";
 
   useEffect(() => {
-    setCategories(fetchedData.categories || []);
-  }, [fetchedData.categories]);
+    setServices(fetchedData.services || []);
+  }, [fetchedData.services]);
 
   const filtered = useMemo(() => {
-    const safeCategories = Array.isArray(categories) ? categories : [];
-    if (!query) return safeCategories;
+    const safeServices = Array.isArray(services) ? services : [];
+    if (!query) return safeServices;
     const q = query.toLowerCase();
-    return safeCategories.filter((c) => c.name?.toLowerCase().includes(q));
-  }, [categories, query]);
+    return safeServices.filter((s) => s.name?.toLowerCase().includes(q));
+  }, [services, query]);
 
   const pageCount = Math.ceil(filtered.length / pageSize);
   const current = filtered.slice((page - 1) * pageSize, page * pageSize);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this category?")) return;
-    await deleteData(`/category/${id}/`);
-    await getServicesData("categories");
+    if (!window.confirm("Delete this service?")) return;
+    await deleteData(`/services/${id}/`);
+    await getServicesData("services");
   };
 
   const handleAdd = () => {
@@ -48,8 +47,9 @@ export default function Categories() {
     setEditData({
       id: row.id,
       name: row.name || "",
-      status: row.status ? "Active" : "Inactive",
-      currentImage: row.image ? STATIC_URL + row.image : null,
+      status:
+        typeof row.status === "boolean" ? (row.status ? "Active" : "Inactive") : row.status || "Active",
+      image: row.image ? STATIC_URL + row.image : "",
     });
     setOpen(true);
   };
@@ -57,7 +57,7 @@ export default function Categories() {
   const handleSubmit = async (formValues) => {
     const fd = new FormData();
     fd.append("name", (formValues.name || "").trim());
-    fd.append("status", formValues.status === "Active");
+    fd.append("status", formValues.status || "Active");
 
     if (formValues.image && formValues.image instanceof File) {
       fd.append("image", formValues.image);
@@ -65,11 +65,12 @@ export default function Categories() {
 
     try {
       if (editData?.id) {
-        await patchData(`/category/${editData.id}/`, fd, "Category");
+        await patchData(`/services/${editData.id}/`, fd, "Service");
       } else {
-        await postData("/category/", fd, "Category");
+        await postData("/services/", fd, "Service");
       }
-      await getServicesData("categories");
+
+      await getServicesData("services");
       setOpen(false);
       setEditData(null);
     } catch (error) {
@@ -81,7 +82,7 @@ export default function Categories() {
   const fields = [
     { label: "Name", name: "name", type: "text", required: true },
     { label: "Status", name: "status", type: "select", options: ["Active", "Inactive"], required: true },
-    { label: "Category Image", name: "image", type: "image" },
+    { label: "Service Image", name: "image", type: "image" },
   ];
 
   const columns = [
@@ -92,7 +93,7 @@ export default function Categories() {
         row.image ? (
           <img
             src={STATIC_URL + row.image}
-            alt="category"
+            alt="service"
             className="h-16 w-16 object-cover rounded-full shadow"
           />
         ) : (
@@ -105,15 +106,21 @@ export default function Categories() {
     {
       label: "Status",
       key: "status",
-      render: (row) => (
-        <span
-          className={`px-3 py-1 rounded-full text-xs font-medium ${
-            row.status ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-          }`}
-        >
-          {row.status ? "Active" : "Inactive"}
-        </span>
-      ),
+      render: (row) => {
+        const normalized =
+          typeof row.status === "boolean" ? (row.status ? "Active" : "Inactive") : row.status || "Inactive";
+        const isActive = normalized === "Active";
+
+        return (
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-medium ${
+              isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+            }`}
+          >
+            {normalized}
+          </span>
+        );
+      },
     },
     {
       label: "Actions",
@@ -133,15 +140,10 @@ export default function Categories() {
 
   return (
     <div className="space-y-8">
-
-      {/* CENTERED + PURPLE + text-4xl TITLE */}
       <div className="text-center py-10 border-b border-gray-200 bg-gradient-to-b from-purple-50 to-white">
-        <h1 className="text-4xl font-extrabold text-purple-700 tracking-tight">
-          Categories Management
-        </h1>
+        <h1 className="text-4xl font-extrabold text-purple-700 tracking-tight">Services Management</h1>
       </div>
 
-      {/* Search + Add Button */}
       <div className="flex flex-col sm:flex-row justify-between items-center gap-4 px-4 sm:px-6 lg:px-8">
         <input
           type="text"
@@ -158,36 +160,33 @@ export default function Categories() {
           className="flex items-center gap-2 px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white font-medium rounded-lg shadow transition"
         >
           <PlusIcon className="h-5 w-5" />
-          Add Category
+          Add Service
         </button>
       </div>
 
-      {/* Table */}
       <div className="px-4 sm:px-6 lg:px-8">
         <DataTable columns={columns} data={current} />
       </div>
 
-      {/* Pagination */}
       {pageCount > 1 && (
         <div className="px-4 sm:px-6 lg:px-8">
-          <Pagination currentPage={page} totalPages={pageCount} onPageChange={setPage} />
+          <Pagination page={page} setPage={setPage} pageCount={pageCount} />
         </div>
       )}
 
-      {/* Modal */}
       <Modal
         open={open}
         onClose={() => {
           setOpen(false);
           setEditData(null);
         }}
-        title={editData ? "Edit Category" : "Add New Category"}
+        title={editData ? "Edit Service" : "Add New Service"}
       >
         <Form
           fields={fields}
-          initialData={editData || {}}
+          initialData={editData || { status: "Active" }}
           onSubmit={handleSubmit}
-          submitLabel={editData ? "Update Category" : "Create Category"}
+          submitLabel={editData ? "Update Service" : "Create Service"}
           onCancel={() => {
             setOpen(false);
             setEditData(null);

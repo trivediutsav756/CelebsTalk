@@ -6,6 +6,9 @@ export default function Topbar({ onMenuClick }) {
 
   function handleLogout() {
     localStorage.removeItem("isAuth");
+    localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
+    localStorage.removeItem("admin");
     navigate("/");
   }
 

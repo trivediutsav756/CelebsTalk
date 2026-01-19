@@ -94,6 +94,30 @@ export default function Form({
               />
             )}
 
+            {field.type === "password" && (
+              <input
+                type="password"
+                name={field.name}
+                value={formData[field.name] || ""}
+                onChange={handleChange}
+                placeholder={field.placeholder}
+                required={field.required}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none"
+              />
+            )}
+
+            {field.type === "date" && (
+              <input
+                type="date"
+                name={field.name}
+                value={formData[field.name] || ""}
+                onChange={handleChange}
+                placeholder={field.placeholder}
+                required={field.required}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none"
+              />
+            )}
+
             {/* Textarea */}
             {field.type === "textarea" && (
               <textarea
@@ -117,9 +141,15 @@ export default function Form({
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-600 focus:border-transparent outline-none"
               >
                 <option value="">-- Choose --</option>
-                {field.options?.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
+                {field.options?.map((opt) => {
+                  const value = typeof opt === "object" && opt !== null ? opt.value : opt;
+                  const label = typeof opt === "object" && opt !== null ? opt.label : opt;
+                  return (
+                    <option key={String(value)} value={value}>
+                      {label}
+                    </option>
+                  );
+                })}
               </select>
             )}
 
@@ -146,6 +176,22 @@ export default function Form({
                     />
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* File Upload */}
+            {field.type === "file" && (
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  accept={field.accept || "*/*"}
+                  name={field.name}
+                  onChange={handleChange}
+                  className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                />
+                <p className="text-xs text-gray-500">
+                  {formData[field.name] instanceof File ? formData[field.name].name : ""}
+                </p>
               </div>
             )}
           </div>

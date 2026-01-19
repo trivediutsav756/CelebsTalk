@@ -18,30 +18,50 @@ export default function Reviews() {
   const pageSize = 10;
 
   // Raw data coming from context
-  const reviews = fetchedData.reviews || [];
-  const users = fetchedData.users || [];
-  const influencers = fetchedData.influencers || [];
+  const reviews = Array.isArray(fetchedData.reviews) ? fetchedData.reviews : [];
+  const users = Array.isArray(fetchedData.users) ? fetchedData.users : [];
+  const influencers = Array.isArray(fetchedData.influencers) ? fetchedData.influencers : [];
 
   // Helpers to build a nice display name from different possible fields.
   const getUserDisplayName = (user) => {
     if (!user) return "";
-    return (
+    const name =
       user.name ||
       user.username ||
       [user.first_name, user.last_name].filter(Boolean).join(" ") ||
-      `User #${user.id}`
-    );
+      "";
+    const id = user.user_id || user.email || user.username || user.id;
+    return name ? `${name} (${id})` : `User #${id}`;
   };
 
   const getInfluencerDisplayName = (influencer) => {
     if (!influencer) return "";
-    return (
+    const name =
       influencer.name ||
       influencer.username ||
       [influencer.first_name, influencer.last_name].filter(Boolean).join(" ") ||
-      `Influencer #${influencer.id}`
-    );
+      "";
+    const id = influencer.influencer_id || influencer.id;
+    return name ? `${name} (${id})` : `Influencer #${id}`;
   };
+
+  const userOptions = useMemo(() => {
+    return users
+      .filter((u) => u && (u.user_id || u.email || u.username || u.id != null))
+      .map((u) => ({
+        value: String(u.user_id ?? u.email ?? u.username ?? u.id),
+        label: getUserDisplayName(u),
+      }));
+  }, [users]);
+
+  const influencerOptions = useMemo(() => {
+    return influencers
+      .filter((i) => i && i.influencer_id != null)
+      .map((i) => ({
+        value: String(i.influencer_id),
+        label: getInfluencerDisplayName(i),
+      }));
+  }, [influencers]);
 
   // Map user_id -> user name
   const userMap = useMemo(() => {
@@ -52,11 +72,12 @@ export default function Reviews() {
     return map;
   }, [users]);
 
-  // Map influencer_id -> influencer name
+  // Map influencer_id(string) and internal id(number) -> influencer name
   const influencerMap = useMemo(() => {
     const map = new Map();
     influencers.forEach((i) => {
-      map.set(i.id, getInfluencerDisplayName(i));
+      if (i?.id != null) map.set(String(i.id), getInfluencerDisplayName(i));
+      if (i?.influencer_id != null) map.set(String(i.influencer_id), getInfluencerDisplayName(i));
     });
     return map;
   }, [influencers]);
@@ -67,7 +88,7 @@ export default function Reviews() {
       ...r,
       userName: userMap.get(r.user_id) || `User #${r.user_id}`,
       influencerName:
-        influencerMap.get(r.influencer_id) || `Influencer #${r.influencer_id}`,
+        influencerMap.get(String(r.influencer_id)) || `Influencer #${r.influencer_id}`,
     }));
   }, [reviews, userMap, influencerMap]);
 
@@ -99,19 +120,24 @@ export default function Reviews() {
 
   const handleDelete = async (id) => {
     await deleteData(`/reviews/${id}/`);
-    await getServicesData();
+    await getServicesData("reviews");
   };
 
   const handleAdd = () => {
-    setEditData(null);
+    setEditData({
+      user_id: "",
+      influencer_id: "",
+      review: "",
+      rating: "",
+    });
     setOpen(true);
   };
 
   const handleEdit = (row) => {
     setEditData({
       id: row.id,
-      user_id: row.user_id || "",
-      influencer_id: row.influencer_id || "",
+      user_id: row.user_id != null ? String(row.user_id) : "",
+      influencer_id: row.influencer_id != null ? String(row.influencer_id) : "",
       review: row.review || "",
       rating: row.rating || "",
     });
@@ -120,8 +146,8 @@ export default function Reviews() {
 
   const handleSubmit = async (formValues) => {
     const payload = {
-      user_id: Number(formValues.user_id),
-      influencer_id: Number(formValues.influencer_id),
+      user_id: String(formValues.user_id),
+      influencer_id: String(formValues.influencer_id),
       review: (formValues.review || "").trim(),
       rating: String(formValues.rating || "").trim(),
     };
@@ -133,7 +159,7 @@ export default function Reviews() {
         await postData("/reviews/", payload, "Review");
       }
 
-      await getServicesData();
+      await getServicesData("reviews");
       setOpen(false);
       setEditData(null);
     } catch (error) {
@@ -144,11 +170,18 @@ export default function Reviews() {
 
   // Form still uses IDs for saving
   const fields = [
-    { label: "User ID", name: "user_id", type: "text", required: true },
     {
-      label: "Influencer ID",
+      label: "User",
+      name: "user_id",
+      type: "select",
+      options: userOptions,
+      required: true,
+    },
+    {
+      label: "Influencer",
       name: "influencer_id",
-      type: "text",
+      type: "select",
+      options: influencerOptions,
       required: true,
     },
     { label: "Review", name: "review", type: "textarea", required: true },

@@ -24,9 +24,10 @@ export default function Banners() {
   }, [fetchedData.banners]);
 
   const filtered = useMemo(() => {
-    if (!query) return banners;
+    const safeBanners = Array.isArray(banners) ? banners : [];
+    if (!query) return safeBanners;
     const q = query.toLowerCase();
-    return banners.filter(
+    return safeBanners.filter(
       (b) =>
         b.CTA_text?.toLowerCase().includes(q) ||
         b.CTA_link?.toLowerCase().includes(q)
@@ -39,8 +40,12 @@ export default function Banners() {
   const handleDelete = async (id) => {
     if (!window.confirm("Delete this banner?")) return;
     try {
-      await deleteData(`/banners/${id}/`);
-      await getServicesData();
+      try {
+        await deleteData(`/banners/${id}/`);
+      } catch (e) {
+        await deleteData(`/banners/pass/${id}/`);
+      }
+      await getServicesData("banners");
     } catch (err) {
       alert("Delete failed");
     }
@@ -56,6 +61,8 @@ export default function Banners() {
       id: row.id,
       CTA_text: row.CTA_text || "",
       CTA_link: row.CTA_link || "",
+      order: row.order ?? "",
+      banner_text: row.banner_text || "",
       status: row.status ? "Active" : "Inactive",
       currentImage: row.image ? STATIC_URL + row.image : null,
     });
@@ -66,7 +73,9 @@ export default function Banners() {
     const fd = new FormData();
     fd.append("CTA_text", (formValues.CTA_text || "").trim());
     fd.append("CTA_link", (formValues.CTA_link || "").trim());
-    fd.append("status", formValues.status === "Active");
+    fd.append("status", formValues.status === "Active" ? "true" : "false");
+    fd.append("order", String(formValues.order ?? "").trim());
+    fd.append("banner_text", (formValues.banner_text || "").trim());
 
     if (formValues.image && formValues.image instanceof File) {
       fd.append("image", formValues.image);
@@ -74,11 +83,15 @@ export default function Banners() {
 
     try {
       if (editData?.id) {
-        await patchData(`/banners/${editData.id}/`, fd, "Banner");
+        try {
+          await patchData(`/banners/${editData.id}/`, fd, "Banner");
+        } catch (e) {
+          await patchData(`/banners/pass/${editData.id}/`, fd, "Banner");
+        }
       } else {
         await postData("/banners/", fd, "Banner");
       }
-      await getServicesData();
+      await getServicesData("banners");
       setOpen(false);
       setEditData(null);
     } catch (error) {
@@ -90,6 +103,8 @@ export default function Banners() {
   const fields = [
     { label: "CTA Text", name: "CTA_text", type: "text", required: true },
     { label: "CTA Link", name: "CTA_link", type: "text" },
+    { label: "Order", name: "order", type: "text" },
+    { label: "Banner Text", name: "banner_text", type: "text" },
     { label: "Status", name: "status", type: "select", options: ["Active", "Inactive"], required: true },
     { label: "Banner Image", name: "image", type: "image" },
   ];
@@ -108,6 +123,8 @@ export default function Banners() {
     },
     { label: "CTA Text", key: "CTA_text", type: "text" },
     { label: "CTA Link", key: "CTA_link", type: "text" },
+    { label: "Order", key: "order", type: "text" },
+    { label: "Banner Text", key: "banner_text", type: "text" },
     {
       label: "Status",
       key: "status",
