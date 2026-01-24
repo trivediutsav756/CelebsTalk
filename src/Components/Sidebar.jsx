@@ -37,6 +37,7 @@ export default function Sidebar({ isOpen, onClose }) {
   const menuList = useMemo(
     () => [
       { label: "Dashboard", to: "/dashboard/home", icon: Squares2X2Icon },
+
       { label: "Influencers", to: "/dashboard/influencers", icon: UserIcon },
       { label: "Users", to: "/dashboard/users", icon: BanknotesIcon },
       { label: "Admin Data", to: "/dashboard/admin-data", icon: ClipboardDocumentListIcon },

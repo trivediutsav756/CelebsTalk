@@ -102,7 +102,7 @@ export default function FaqPage() {
   ];
 
   return (
-    <div className="space-y-4"> 
+    <div className="space-y-4">
 
       <PageHeader
         title="FAQs"
@@ -126,9 +126,8 @@ export default function FaqPage() {
             key: "status",
             render: (row) => (
               <span
-                className={`px-2 py-1 text-xs rounded ${
-                  row.status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                 }`}
+                className={`px-2 py-1 text-xs rounded ${row.status ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  }`}
               >
                 {row.status ? "Active" : "Inactive"}
               </span>

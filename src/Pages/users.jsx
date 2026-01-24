@@ -67,8 +67,6 @@ export default function Users() {
       gender: "",
       date_of_birth: "",
       image: null,
-      interests: "",
-      referral_code: "",
       is_active: "Active",
       is_staff: "No",
     });
@@ -91,6 +89,7 @@ export default function Users() {
     };
 
     setEditData({
+      id: row.id,
       user_id: row.user_id || row.email || row.id,
       full_name: row.full_name || "",
       email: row.email || row.user_id || "",
@@ -98,8 +97,6 @@ export default function Users() {
       gender: row.gender || "",
       date_of_birth: normalizeDobForInput(row.date_of_birth),
       image: null,
-      interests: row.interests || "",
-      referral_code: row.referral_code || "",
       is_active: row.is_active ? "Active" : "Inactive",
       is_staff: row.is_staff ? "Yes" : "No",
     });
@@ -129,8 +126,6 @@ export default function Users() {
     fd.append("mobile", (formValues.mobile || "").trim());
     fd.append("gender", formValues.gender || "");
     fd.append("date_of_birth", normalizeDobForApi((formValues.date_of_birth || "").trim()));
-    fd.append("interests", (formValues.interests || "").trim());
-    fd.append("referral_code", (formValues.referral_code || "").trim());
     fd.append("is_active", formValues.is_active === "Active" ? "true" : "false");
     fd.append("is_staff", formValues.is_staff === "Yes" ? "true" : "false");
 
@@ -139,7 +134,7 @@ export default function Users() {
     }
 
     try {
-      const identifier = editData?.user_id || editData?.email;
+      const identifier = editData?.id ?? editData?.user_id ?? editData?.email;
       const encodedId = encodeURIComponent(String(identifier ?? "").trim());
       if (identifier) {
         try {
@@ -189,8 +184,6 @@ export default function Users() {
     },
     { label: "Date Of Birth", name: "date_of_birth", type: "date" },
     { label: "Image", name: "image", type: "image" },
-    { label: "Interests", name: "interests", type: "text" },
-    { label: "Referral Code", name: "referral_code", type: "text" },
     {
       label: "Active Status",
       name: "is_active",
@@ -209,11 +202,13 @@ export default function Users() {
 
   const columns = [
     { label: "Name", key: "full_name", type: "text" },
-    { label: "Email", key: "email", type: "text" },
+    {
+      label: "Email",
+      key: "email",
+      render: (row) => row.email || row.user_id || row.username || "--",
+    },
     { label: "Mobile", key: "mobile", type: "text" },
     { label: "Gender", key: "gender", type: "text" },
-    { label: "Interests", key: "interests", type: "text" },
-    { label: "Referral Code", key: "referral_code", type: "text" },
     {
       label: "Active",
       key: "is_active",
