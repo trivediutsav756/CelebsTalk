@@ -28,6 +28,7 @@ export const AppProvider = ({ children }) => {
     faqs: [],
     services: [],
     expertise: [],
+    withdrawals: [],
   });
 
   const inflightFetchRef = useRef({});
@@ -196,14 +197,58 @@ export const AppProvider = ({ children }) => {
   };
 
   const getData = async (endPoint) => {
-    const headers = {};
-    const token = localStorage.getItem("access_token");
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    const doFetch = async (scheme, allowRetry) => {
+      const headers = {};
+      setAuthHeader(headers, scheme);
+
+      const csrfToken = getCookie("csrftoken");
+      if (csrfToken) {
+        headers["X-CSRFToken"] = csrfToken;
+      }
+
+      const res = await fetch(`${baseUrl}${endPoint}`, {
+        method: "GET",
+        headers,
+        credentials: "include",
+      });
+
+      if ((res.status === 401 || res.status === 403) && allowRetry && getAccessToken()) {
+        const altScheme = scheme === "Bearer" ? "Token" : "Bearer";
+        return doFetch(altScheme, false);
+      }
+
+      return res;
+    };
+
+    const res = await doFetch("Bearer", true);
+
+    if (!res.ok) {
+      let data = {};
+      let rawText = "";
+      try {
+        data = await res.clone().json();
+      } catch (e) {
+        try {
+          rawText = await res.text();
+        } catch (e2) {}
+      }
+
+      const errMsg =
+        data.message ||
+        data.detail ||
+        data.non_field_errors?.[0] ||
+        "Fetch failed";
+
+      const extra =
+        data && Object.keys(data).length
+          ? ` | ${JSON.stringify(data)}`
+          : rawText
+            ? ` | ${rawText.slice(0, 500)}`
+            : "";
+
+      throw new Error(`${res.status} ${errMsg}${extra}`);
     }
 
-    const res = await fetch(`${baseUrl}${endPoint}`, { headers, credentials: "include" });
-    if (!res.ok) throw new Error("Fetch failed");
     return res.json();
   };
 
@@ -220,6 +265,7 @@ export const AppProvider = ({ children }) => {
         faqs: "/faqs/",
         services: "/services/",
         expertise: "/expertise/",
+        withdrawals: "/withdrawals/",
       };
 
       const normalizeList = (value) => {

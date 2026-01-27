@@ -39,6 +39,7 @@ export default function Sidebar({ isOpen, onClose }) {
       { label: "Dashboard", to: "/dashboard/home", icon: Squares2X2Icon },
 
       { label: "Influencers", to: "/dashboard/influencers", icon: UserIcon },
+      { label: "influncers Withdrawals", to: "/dashboard/withdrawals", icon: BanknotesIcon },
       { label: "Users", to: "/dashboard/users", icon: BanknotesIcon },
       { label: "Admin Data", to: "/dashboard/admin-data", icon: ClipboardDocumentListIcon },
       { label: "Sponsored Content", to: "/dashboard/sponsored-content", icon: TicketIcon },
