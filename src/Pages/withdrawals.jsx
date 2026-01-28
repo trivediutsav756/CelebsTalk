@@ -247,6 +247,30 @@ export default function Withdrawals() {
       const fd = new FormData();
       fd.append("wallet_current_amount", String(newWallet));
       await patchData(`/influencers/${encodeURIComponent(influencerKey)}/`, fd, "Wallet");
+
+      return newWallet;
+    };
+
+    const createTxnHistoryAfterApproval = async (balanceAfter) => {
+      const influencerKey = String(payload.influencer_data || "").trim();
+      const methodLabel = String(formValues.transaction_method_data || "").trim();
+      const amount = Number(payload.withdrawal_amount);
+
+      const txPayload = {
+        influencer_data: influencerKey,
+        transaction_type: "debit",
+        payment_method: methodLabel || "Bank Transfer",
+        payment_purpose: "Withdrawal",
+        transaction_title: "Withdrawal Request",
+        transaction_amount: Number.isFinite(amount) ? amount : 0,
+        amount: Number.isFinite(amount) ? amount : 0,
+        wallet_current_amount: Number.isFinite(Number(balanceAfter)) ? Number(balanceAfter) : undefined,
+        balance: Number.isFinite(Number(balanceAfter)) ? Number(balanceAfter) : undefined,
+        remaining_balance: Number.isFinite(Number(balanceAfter)) ? Number(balanceAfter) : undefined,
+        note: "Withdrawal approved",
+      };
+
+      await postData("/influencer_transaction_history/", txPayload, "Transaction History");
     };
 
     try {
@@ -257,13 +281,19 @@ export default function Withdrawals() {
         await patchData(`/withdrawals/${encodeURIComponent(editData.id)}/`, payload, "Withdrawal");
 
         // deduct wallet only when moving to Approved first time
-        if (wantsApprove && !wasApproved) await deductWalletAfterApproval();
+        if (wantsApprove && !wasApproved) {
+          const newWallet = await deductWalletAfterApproval();
+          await createTxnHistoryAfterApproval(newWallet);
+        }
       } else {
         if (wantsApprove) validateWalletForApproval();
 
         await postData("/withdrawals/", payload, "Withdrawal");
 
-        if (wantsApprove) await deductWalletAfterApproval();
+        if (wantsApprove) {
+          const newWallet = await deductWalletAfterApproval();
+          await createTxnHistoryAfterApproval(newWallet);
+        }
       }
 
       await getServicesData(["withdrawals", "influencers"]);
